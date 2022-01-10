@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<head>
+  <title>
+    News Desert Map
+  </title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@700&family=Open+Sans&display=swap" rel="stylesheet">
+  <style>
+    html, body, #wrapper {
+      width: 100%;
+      height: 100%;
+    padding: 0px;
+    margin: 0px;
+  }
+  #map { 
+    position:relative; 
+    width: 100%;
+    height: 100%;
+    margin: auto auto;
+  }
+  svg {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+  }
+  .hidden {
+    display: none;
+  }
+  .path:hover{
+    stroke: black;
+    stroke-width: 4px;
+  }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+ 
+
+<script>
+  d3.json("https://garrimgyr.github.io/DallasFreePress/map_dat_v3.geojson").then(mapDraw);
+    
+    
+function mapDraw(geojson){    
+    //mapboxgs トークン
+    mapboxgl.accessToken = 'pk.eyJ1IjoiZ2FycmltIiwiYSI6ImNramc4aWRkMTE0ZzAyeXFwZG54eTFobnIifQ.zUa-muVxXAh3Dl6IJQY70g'
+        
+    //Setup mapbox-gl map
+    var map = new mapboxgl.Map({
+        container: 'map', // container id
+        style: 'mapbox://styles/garrim/ckkijadnq0x1s17mev7g1rxe9',
+        center: [-96.7970, 32.7767],
+        zoom: 10,
+    })
+    
+    map.addControl(new mapboxgl.NavigationControl());
+    
+    // svg
+    var container = map.getCanvasContainer()
+    var svg = d3.select(container).append("svg")
+
+
+	//
+	var transform = d3.geoTransform({point: projectPoint});
+	var path = d3.geoPath().projection(transform);
+
+  var colorScale = d3.scaleThreshold()
+  .domain([5000, 10000, 15000, 20000, 21000])
+  .range(d3.schemeBlues[5]);
+
+  //var colorScale = d3.scaleSequential()
+  //.domain([0,20888])
+  //.interpolator(d3.interpolateYlGnBu);
+  
+   // create a tooltip
+   const Tooltip = d3.select("#map")
+   .append("div")
+   .attr("class", "tooltip")
+   .style("position", "absolute")
+   .style("opacity", 1)
+   .style("background-color", "white")
+   .style("border", "solid")
+   .style("border-width", "2px")
+   .style("border-radius", "5px")
+   .style("padding", "5px")
+   .style('z-index', 5)
+ 
+ // Three function that change the tooltip when user hover / move / leave a cell
+ const mouseover = function(e, d) {
+   Tooltip.style("opacity", 1)
+ }
+ var mousemove = function(e, d) {
+   Tooltip
+     .html("<h3>" + d.properties['Zip Code'] + "</h3>"  + "Total Circulation:  " + d.properties.tot_int_v2)
+     .style("left", (e.clientX) + 10 + "px")
+     .style("top", (e.clientY) - 5 + "px")
+ }
+ var mouseleave = function(e, d) {
+   Tooltip.style("opacity", 0)
+   console.log("hit")
+ }
+
+ 	var featureElement = svg.append("g")
+        .selectAll("path")
+		    .data(geojson.features)
+		    .enter()
+        .append("path")
+        .attr("stroke", "black")
+        .attr("stroke-width", ".2pt")
+        .attr("fill-opacity", 0.7)
+        .attr("fill", function (d) {
+          return colorScale(d.properties.tot_int_v2);})
+        .on("mouseover", mouseover)
+        .on("mousemove", mousemove)
+        .on("mouseleave", mouseleave)
+        .on('mouseover', function(d, i) {
+          Tooltip.style("opacity", 1)
+          var currentState = this;
+          d3.select(this).style('fill-opacity', 1);
+          d3.select(this).style('stroke', "red");
+          d3.select(this).style('stroke-width', "1.5pt");
+          d3.select(this).attr('z-index', 4);
+          })
+        .on('mouseleave', function(d, i) {
+          Tooltip.style("opacity", 0)
+          var currentState = this;
+          d3.select(this).style('fill-opacity', .7);
+          d3.select(this).style('stroke', "black");
+          d3.select(this).style('stroke-width', ".2pt");
+          });
+    
+// add labels
+    labelled = geojson.features.filter(function(d){return d.properties["Zip Code"]=="75212" || d.properties["Zip Code"]=="75215" || d.properties["Zip Code"]=="75210"})
+
+    //path要素のアップデート
+    function update() {
+        featureElement.attr("d", path);
+        var clean = d3.selectAll(".label-text").remove()
+        var labels = svg.append("g")    
+        .selectAll(".path")
+        .data(labelled)
+        .enter()
+        .append("text")
+        .attr("x", function(d) {
+            return path.centroid(d)[0];
+        })
+        .attr("y", function(d) {
+            return path.centroid(d)[1];
+        })
+        .attr("text-anchor", "middle")
+        .attr("class", "label-text")
+        .attr("font-size", "12px")
+        .attr("text-anchor", "middle")
+        //.attr("font-weight", "bold")
+        .attr("font-family", 'Lato', 'sans-serif')
+       // .attr("font-family", 'Open Sans', 'sans-serif')
+        .text(function(d) {
+          return d.properties['Zip Code'];
+        })
+    }
+
+    
+    //
+    map.on("viewreset", update)
+    map.on("movestart", function(){
+		svg.classed("hidden", true);
+	});	
+    map.on("rotate", function(){
+		svg.classed("hidden", true);
+	});	
+    map.on("moveend", function(){
+		update()
+		svg.classed("hidden", false);
+	})
+    
+    //update
+    update()
+        
+    
+	function projectPoint(lon, lat) {
+        var point = map.project(new mapboxgl.LngLat(lon, lat));
+		this.stream.point(point.x, point.y);
+	}
+
+// create a list of keys
+var keys = ["5,000", "10,000", "15,000", "20,000", "21,000"]
+
+// Add one dot in the legend for each name.
+var size = 20
+
+svg.append("rect")
+.attr("x", 0)
+.attr("y", 0)
+.attr("width", 160)
+.attr("height", 190)
+.attr("fill", "white")
+
+svg.append("text")
+.text("Physical Copies")
+.attr("x", 20)
+.attr("y", 30)
+.attr("width", 100)
+.attr("height", 150)
+.attr("fill", "black")
+.attr("text-anchor", "left")
+.style("alignment-baseline", "middle")
+.attr("font-size", "18px")
+.attr("font-family", 'Lato', 'sans-serif')
+.attr("font-weight", "bold")
+
+
+
+svg.selectAll("mydots")
+  .data(colorScale.domain())
+  .enter()
+  .append("rect")
+    .attr("x", 20)
+    .attr("y", function(d,i){ return 50 + i*(size+5)}) // 100 is where the first dot appears. 25 is the distance between dots
+    .attr("width", size)
+    .attr("height", size)
+    .attr("fill", function (d) {
+      return colorScale(d);})
+    .attr("fill-opacity", 0.7)
+
+// Add one dot in the legend for each name.
+svg.selectAll("mylabels")
+  .data(keys)
+  .enter()
+  .append("text")
+    .attr("x", 20 + size*1.2)
+    .attr("y", function(d,i){ return 50 + i*(size+5) + (size/2)}) // 100 is where the first dot appears. 25 is the distance between dots
+    .style("fill", "black")
+    .text(function(d){ return d})
+    .attr("text-anchor", "left")
+    .style("alignment-baseline", "middle")
+    
+}
+</script>
+</body>
