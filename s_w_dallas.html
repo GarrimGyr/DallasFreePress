@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<head>
+    <title>
+        South and West Dallas Boundaries
+    </title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+
+    <!-- Links to dependencies-->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js"></script>
+    <link href="s_w_dallas_styles.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@700&family=Open+Sans&display=swap" rel="stylesheet">
+
+</head>
+
+<body>
+
+    <!-- Container for map and svg -->
+    <div id="map"></div>
+
+    <script>
+        // Load geojson and boot
+        d3.json("https://garrimgyr.github.io/DallasFreePress/s_w_dallas.geojson").then(mapDraw);
+
+    function mapDraw(geojson){
+        // Mapbox token
+        mapboxgl.accessToken = 'pk.eyJ1IjoiZ2FycmltIiwiYSI6ImNramc4aWRkMTE0ZzAyeXFwZG54eTFobnIifQ.zUa-muVxXAh3Dl6IJQY70g'
+        
+       //Setup mapbox-gl map
+        var map = new mapboxgl.Map({
+        container: 'map', // container id
+        style: 'mapbox://styles/garrim/ckkijadnq0x1s17mev7g1rxe9',
+        center: [-96.7970, 32.7767],
+        zoom: 10,
+    })
+
+        // Add navigation control
+        map.addControl(new mapboxgl.NavigationControl());
+
+        // Add svg for D3
+        var container = map.getCanvasContainer()
+        var svg = d3.select(container).append("svg")
+
+        // Geographic Projection
+        var transform = d3.geoTransform({point: projectPoint});
+        var path = d3.geoPath().projection(transform);
+    
+        // Plot geojson polygons
+        var featureElement = svg.append("g")
+            .selectAll("path")
+            .data(geojson.features)
+            .enter()
+            .append("path")
+            .attr("stroke", "black")
+            .attr("stroke-width", ".2pt")
+            .attr("fill", "#001eaf")
+            .attr("fill-opacity", .5)
+            .attr("z-index", 2)
+        
+        // Update function and add/move labels
+        function update() {
+            featureElement.attr("d", path);
+            var clean = d3.selectAll("text").remove()
+            var labels = svg.append("g")
+            .selectAll(".path")
+            .data(geojson.features)
+            .enter()
+            .append("text")
+            .attr("x", function(d){
+                return path.centroid(d)[0];
+            })
+            .attr("y", function(d){
+                return path.centroid(d)[1];
+            })
+            .attr("text-anchor", "middle")
+            .attr("font-size", "12px")
+            .attr("font-weight", "bold")
+            .attr("font-family", "'Lato', sans-serif; 'Open Sans', sans-serif")
+            .attr("fill", "white")
+            .style("background-color", "white")
+            .text(function(d){
+                return d.properties.name;
+            })
+        }
+
+        // Hide svg while map updates
+        map.on("viewreset", update)
+        map.on("movestart", function(){
+            svg.classed("hidden", true);
+        });	
+        map.on("rotate", function(){
+            svg.classed("hidden", true);
+        });	
+        map.on("moveend", function(){
+            update()
+            svg.classed("hidden", false);
+        })
+
+        // Boot
+        update()
+        
+        // Project point function
+        function projectPoint(lon, lat) {
+            var point = map.project(new mapboxgl.LngLat(lon, lat));
+            this.stream.point(point.x,point.y);
+        }
+        }
+    </script>
+</body>
